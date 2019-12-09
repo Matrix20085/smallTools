@@ -1,9 +1,6 @@
 #############
 # ToDo:
-#   Dedupe word list
-#   Not exit when URL is unreachable
-#	Check for https first
-#	Get base URL w/o http/https
+#   Ask user to continue if over 5000 URLs are in the queue
 
 
 import re
@@ -11,11 +8,13 @@ import sys
 import requests
 import argparse
 
+from os import remove
+
 parser = argparse.ArgumentParser()
 parser.add_argument("URL", help="URL to start from")
 parser.add_argument("-o", default="word.list", help="Location to save file (default=word.list")
 parser.add_argument("-d", type=int, default=2, help="Depth to spider (default=2)")
-parser.add_argument("-l", type=int, default=4, help="Length of word to search for (default=4)")
+parser.add_argument("-l", type=int, default=4, help="Minimum length of word to search for (default=4)")
 parser.add_argument("-v", help="Display verbose output", action="store_true")
 
 args = parser.parse_args()
@@ -25,37 +24,54 @@ class webNode():
         self.url = url
         self.depth = depth
 
-#def getContent(url):
 
 def searchContent(data):
-    regex = r"\b\w{%s,15}\b" % args.l
     words = re.findall(r"\b\w{%s,15}\b" % args.l,data)
-    outfile = open(args.o,"a")
+    outFile = open(tempFile,"a")
+    wordsToAdd = []
     for word in words:
-        outfile.write(word+"\n\r")
-    outfile.close()
+        word = word.lower()
+        if word not in wordsToAdd:
+            outFile.write(word+"\n")
+            wordsToAdd.append(word)
+    outFile.close()
+
 
 def addURLs(hrefs):
+    webListingsStrings = []
+    for string in webListings:
+        webListingsStrings.append(string.url)
     for urlItem in hrefs:
-        shouldAdd = True
         newURL = urlItem.replace("href=",'').replace('"','',2)
-        if args.URL in newURL and node.depth < args.d:
-            for x in webListings:
-                if newURL == x.url:
-                    shouldAdd = False
-            if shouldAdd:
-                if args.v:
-                    print "Adding URL: " + newURL
-                webListings.append(webNode(newURL,node.depth+1))
+        if newURL[0] == "/":
+            newURL = node.url + newURL # Build URL if it is refrencing a local resource
+        if rootDomain in newURL and node.depth < args.d and newURL not in webListingsStrings and not re.match(r'\.(css|zip|gz|bz2|png|gif|jpg|jpeg|bmp|mpg|mpeg|avi|wmv|mov|rm|ram|swf|flv|ogg|webm|mp4|mp3|wav|acc|wma|mid|midi)$',newURL):
+            if args.v:
+                print "Adding URL: " + newURL
+            webListings.append(webNode(newURL,node.depth+1))
+            webListingsStrings.append(newURL)
 
-# Adds first node into array
-webListings = []
-webListings.append(webNode(args.URL,0))
 
-# Loops through each node dynamical
+def dedupeFile():
+    outWords = []
+    outFile = open(args.o,"a")
+    with open(tempFile) as inFile:
+        line = inFile.readline()
+        while line:
+            if line not in outWords:
+                outWords.append(line)
+                outFile.write(line)
+            line = inFile.readline()   
+    outFile.close()
+
+
+webListings = [webNode(args.URL,0)]
+rootDomain = re.search(r'\/\/.+\/?',args.URL).group().replace('/','',3)
+tempFile = "temp.txt"
+
+# Loops through each node dynamicaly
 for node in webListings:
 
-    # If verbose print logging information
     if args.v:
         print "Working on: " + node.url + ":" + str(node.depth)
     
@@ -64,10 +80,11 @@ for node in webListings:
         data = requests.get(node.url)
     except:
         print "Host unreachable:  " + node.url
-        exit() #-------------------------------THAKE THIS LINE OUT AND JUST SKIP TO NEXT LOOP
+        continue
     
-    # Pull all href, parse down to just URL then add to webListings
     addURLs(re.findall('href=".+?"',data.text))
     searchContent(data.text)
 
-    
+
+dedupeFile()
+remove(tempFile)
