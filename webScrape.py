@@ -54,8 +54,8 @@ def addURLs(hrefs):
 
 def dedupeFile():
     outWords = []
-    outFile = open(args.o,"a")
-    with open(tempFile) as inFile:
+    outFile = open(args.o,"a", encoding="utf-8")
+    with open(tempFile, encoding="utf-8") as inFile:
         line = inFile.readline()
         while line:
             if line not in outWords:
