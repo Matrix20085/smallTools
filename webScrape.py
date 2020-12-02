@@ -27,7 +27,7 @@ class webNode():
 
 def searchContent(data):
     words = re.findall(r"\b\w{%s,15}\b" % args.l,data)
-    outFile = open(tempFile,"a")
+    outFile = open(tempFile,"a", encoding="utf-8")
     wordsToAdd = []
     for word in words:
         word = word.lower()
@@ -47,7 +47,7 @@ def addURLs(hrefs):
             newURL = node.url + newURL # Build URL if it is refrencing a local resource
         if rootDomain in newURL and node.depth < args.d and newURL not in webListingsStrings and not re.match(r'\.(css|zip|gz|bz2|png|gif|jpg|jpeg|bmp|mpg|mpeg|avi|wmv|mov|rm|ram|swf|flv|ogg|webm|mp4|mp3|wav|acc|wma|mid|midi)$',newURL):
             if args.v:
-                print "Adding URL: " + newURL
+                print("Adding URL: " + newURL)
             webListings.append(webNode(newURL,node.depth+1))
             webListingsStrings.append(newURL)
 
@@ -69,19 +69,22 @@ webListings = [webNode(args.URL,0)]
 rootDomain = re.search(r'\/\/.+\/?',args.URL).group().replace('/','',3)
 tempFile = "temp.txt"
 
+headers = {
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.12; rv:55.0) Gecko/20100101 Firefox/55.0',
+}
+
 # Loops through each node dynamicaly
 for node in webListings:
 
     if args.v:
-        print "Working on: " + node.url + ":" + str(node.depth)
+        print("Working on: " + node.url + ":" + str(node.depth))
     
     # Try website connection
     try:
-        data = requests.get(node.url)
+        data = requests.get(node.url,headers=headers)
     except:
-        print "Host unreachable:  " + node.url
+        print("Host unreachable:  " + node.url)
         continue
-    
     addURLs(re.findall('href=".+?"',data.text))
     searchContent(data.text)
 
